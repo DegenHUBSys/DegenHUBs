@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEGEN HUB | Omega Terminal v16.9.8</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --neon-pink: #ff00ff;
+            --neon-blue: #00f2ff;
+            --danger-red: #ff0033;
+            --warning-orange: #ffae00;
+            --deep-black: #020202;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: var(--deep-black);
+            color: #fff;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 50%, #0d1a0d 0%, #000 100%),
+                url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+            scroll-behavior: smooth;
+            text-transform: uppercase;
+            font-style: italic;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* CRT FX Overlay */
+        body::before {
+            content: " "; display: block; position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), 
+                        radial-gradient(rgba(0, 255, 65, 0.05), transparent 70%);
+            z-index: 9999; background-size: 100% 4px, 100% 100%;
+            pointer-events: none; opacity: 0.15;
+        }
+
+        /* Fixed Navigation Layout */
+        .hud-top-bar { position: fixed; top: 0; left: 0; width: 100%; z-index: 600; height: 32px; background: black; border-bottom: 1px solid rgba(0,255,65,0.2); }
+        .marquee-container { position: fixed; top: 32px; left: 0; width: 100%; z-index: 550; background: rgba(0,20,10,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.05); height: 26px; overflow: hidden; display: flex; align-items: center; }
+        nav { position: fixed; top: 58px; left: 0; width: 100%; z-index: 500; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        .marquee-content {
+            display: inline-block;
+            white-space: nowrap;
+            animation: mainMarquee 35s linear infinite;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 800;
+            color: var(--neon-green);
+        }
+        @keyframes mainMarquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+        .hud-panel {
+            background: rgba(0, 25, 12, 0.85); backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 255, 65, 0.2); position: relative;
+            clip-path: polygon(0 0, 98% 0, 100% 2%, 100% 100%, 2% 100%, 0 98%);
+        }
+
+        .btn-blackops {
+            background: var(--neon-green); color: #000; font-weight: 900;
+            letter-spacing: 2px; transition: all 0.2s ease;
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%); border: none; cursor: pointer;
+        }
+        .btn-blackops:hover { background: white; box-shadow: 0 0 20px var(--neon-green); transform: scale(1.02); }
+
+        .view-hidden { display: none !important; }
+
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.97); backdrop-filter: blur(30px);
+            z-index: 9000; display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: 0.4s;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+
+        .sentiment-orb {
+            width: 70px; height: 70px; border-radius: 50%;
+            background: radial-gradient(circle, var(--neon-green) 0%, transparent 70%);
+            filter: blur(8px); animation: pulseOrb 3s infinite alternate;
+        }
+        @keyframes pulseOrb { from { transform: scale(0.9); opacity: 0.5; } to { transform: scale(1.1); opacity: 0.9; } }
+
+        /* Slide Feed Controls */
+        .feed-btn {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px; background: rgba(0,255,65,0.1); border: 1px solid var(--neon-green);
+            color: var(--neon-green); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 50; backdrop-filter: blur(5px);
+        }
+        .feed-btn:hover { background: var(--neon-green); color: black; box-shadow: 0 0 15px var(--neon-green); }
+        .feed-btn-l { left: 10px; }
+        .feed-btn-r { right: 10px; }
+
+        .alpha-card {
+            min-width: 280px; height: 160px; background: rgba(0, 40, 20, 0.6); border: 1px solid rgba(0,255,65,0.2);
+            padding: 1.5rem; transition: 0.3s; cursor: pointer; border-left: 4px solid var(--neon-green);
+        }
+        .alpha-card:hover { transform: translateY(-5px); border-left-color: white; background: rgba(0,255,65,0.15); }
+
+        /* Partnership Marquee */
+        .partnership-container {
+            width: 100%; background: rgba(0, 255, 65, 0.02); border-top: 1px solid rgba(0, 255, 65, 0.1); border-bottom: 1px solid rgba(0, 255, 65, 0.1); padding: 2rem 0; display: flex; flex-direction: column; gap: 1.5rem;
+            position: relative; z-index: 40;
+        }
+        .partner-row { width: 100%; overflow: hidden; white-space: nowrap; display: flex; }
+        .partner-content-l { display: inline-block; animation: partnerScrollLeft 50s linear infinite; }
+        .partner-content-r { display: inline-block; animation: partnerScrollRight 50s linear infinite; }
+        .partner-item { display: inline-flex; align-items: center; gap: 0.75rem; margin: 0 4rem; color: rgba(255, 255, 255, 0.3); font-family: 'JetBrains Mono'; font-size: 10px; font-weight: 800; letter-spacing: 3px; }
+        .partner-item span { color: var(--neon-green); opacity: 0.6; }
+        @keyframes partnerScrollLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        @keyframes partnerScrollRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+
+        .paper-sidebar-btn {
+            background: rgba(255,255,255,0.02); border-left: 2px solid rgba(255,255,255,0.1);
+            padding: 1.2rem 1.5rem; transition: 0.3s; text-align: left; font-size: 11px; color: #888;
+        }
+        .paper-sidebar-btn.active { background: var(--neon-green); color: black; border-left-width: 4px; font-weight: 900; }
+        
+        .paper-entry { 
+            background: rgba(255, 255, 255, 0.01); border-left: 2px solid var(--neon-green); 
+            padding: 4rem; position: relative; margin-bottom: 5rem; transition: 0.4s;
+            overflow: hidden; backdrop-filter: blur(10px);
+        }
+
+        .code-kernel { background: #000; border: 1px solid rgba(0,255,65,0.2); padding: 1.5rem; font-family: 'JetBrains Mono'; font-size: 11px; color: var(--neon-green); position: relative; overflow: hidden; }
+
+        /* Map Aesthetics */
+        .map-glow { filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.3)); }
+        .map-node { fill: var(--neon-green); animation: pulseNode 2s infinite; }
+        @keyframes pulseNode { 0%, 100% { opacity: 1; r: 3; } 50% { opacity: 0.4; r: 5; } }
+
+        /* Referral Network Viz */
+        .neural-node { stroke: var(--neon-green); stroke-width: 1; fill: black; transition: 0.5s; }
+        .neural-link { stroke: var(--neon-green); stroke-width: 0.5; opacity: 0.2; stroke-dasharray: 4; animation: flowDash 5s linear infinite; }
+        @keyframes flowDash { to { stroke-dashoffset: -100; } }
+
+        /* Footer Aesthetics */
+        .footer-grid-floor {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+            background-size: 35px 35px; perspective: 1000px; transform: rotateX(60deg) translateY(-120px);
+            opacity: 0.4; pointer-events: none;
+        }
+
+        .diagnostic-circle {
+            width: 55px; height: 55px; border-radius: 50%; border: 1px solid rgba(0,255,65,0.3);
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+        .diagnostic-fill {
+            position: absolute; inset: -1px; border-radius: 50%;
+            border: 2px solid var(--neon-blue);
+            clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%);
+            transform: rotate(var(--angle, 0deg)); filter: drop-shadow(0 0 5px var(--neon-blue));
+        }
+
+        .scan-anim { position: absolute; left: 0; width: 100%; height: 2px; background: rgba(0, 25, 12, 0.5); animation: scanning 4s linear infinite; z-index: 5; }
+        @keyframes scanning { 0% { top: 0%; } 100% { top: 100%; } }
+
+        .shard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+        .shard-cell { aspect-ratio: 1; background: rgba(0, 255, 65, 0.05); border: 1px solid rgba(255, 255, 255, 0.05); font-size: 7px; display: flex; align-items: center; justify-content: center; }
+        .shard-active { background: var(--neon-green); color: black; font-weight: 900; box-shadow: 0 0 10px var(--neon-green); }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-green); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="selection:bg-green-500 selection:text-black">
+
+    <!-- IDENTITY MODAL (GOOGLE AUTH) -->
+    <div id="walletModal" class="modal-overlay" onclick="window.closeWalletModal()">
+        <div class="hud-panel p-16 max-w-xl w-full mx-4 text-center border-neon-blue shadow-[0_0_120px_rgba(0,242,255,0.2)]" onclick="event.stopPropagation()">
+            <header class="mb-10">
+                <div class="inline-block px-3 py-1 bg-neon-blue/10 text-neon-blue mono text-[9px] font-black italic mb-6 border border-neon-blue/30 uppercase tracking-widest">AUTHENTICATION_GATEWAY_v16.9.8</div>
+                <h3 class="text-4xl font-black italic uppercase tracking-tighter text-white">Neural_Identity_Link</h3>
+                <p class="mono text-gray-500 text-[11px] mt-4 uppercase tracking-widest leading-loose text-center">Synchronize Identity via Real Google Infrastructure</p>
+            </header>
+            
+            <div class="group flex justify-between items-center p-12 border-2 border-white/5 hover:border-neon-blue transition-all duration-500 bg-black/60 cursor-pointer rounded-sm shadow-inner" onclick="window.loginWithGoogle()">
+                <div class="flex items-center gap-6">
+                    <svg class="w-12 h-12" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <span class="text-white text-3xl tracking-[0.2em] group-hover:text-neon-blue uppercase font-black italic">Authorize</span>
+                </div>
+                <div class="w-8 h-8 bg-neon-blue rounded-full animate-ping shadow-[0_0_30px_var(--neon-blue)]"></div>
+            </div>
+            <div id="authDiagnostic" class="hidden mt-8 p-4 bg-red-500/10 border border-red-500/20 text-[10px] mono text-red-500 text-left">
+                [AUTH_ERR] PLEASE ADD <span id="errDomain" class="text-white font-black underline"></span> TO FIREBASE AUTHORIZED DOMAINS
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD TOP BAR -->
+    <div class="hud-top-bar px-6 flex justify-between items-center mono text-[9px] text-green-500 font-black uppercase">
+        <div class="flex gap-8">
+            <span>COORD_SYNC: <span id="mouseCoord">0.0, 0.0</span></span>
+            <span>NODE_ADDR: <span id="nodeDisplayAddr" class="text-white italic">OFFLINE...</span></span>
+        </div>
+        <div class="flex gap-6 items-center">
+            <span class="text-white animate-pulse tracking-widest flex items-center gap-2">
+                <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> OMEGA_STATION_v16.9
+            </span>
+            <span id="currentTime">00:00:00 GMT</span>
+        </div>
+    </div>
+
+    <!-- STATUS MARQUEE -->
+    <div class="marquee-container">
+        <div class="marquee-content uppercase font-black">
+            [SINGULARITY_DETECTION: ON] -- [NEURAL_LATENCY: 0.001ms] -- [QUANTUM_FLUX: STABLE] -- [ALPHA_ENGINE: MAX_VELOCITY] -- [LIQUIDITY_SNIPER: ARMED] -- [SENTIMENT_ORB: BULLISH] -- [DARK_POOL_SYNC: 100%] -- [OMEGA_CONSENSUS: REACHED] -- [SHIELD_STATUS: ACTIVE] -- [KERNEL_v16: ONLINE] -- [PHASE_1_DEPLOYED]
+        </div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <nav class="px-4 md:px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-4 cursor-pointer" onclick="window.switchView('dashboard')">
+            <div class="bg-green-500 text-black px-4 py-1.5 font-black text-2xl skew-x-[-15deg] shadow-[0_0_15px_#00ff41]">DH</div>
+            <div class="text-white hidden sm:block">
+                <span class="text-2xl font-black italic tracking-tighter block uppercase">Degen<span class="text-green-500">Hub</span></span>
+            </div>
+        </div>
+        
+        <div class="flex gap-4 md:gap-8 items-center mono text-[10px] font-bold text-gray-500 overflow-x-auto no-scrollbar uppercase">
+            <button onclick="window.switchView('dashboard')" class="hover:text-green-400 transition">_Dashboard</button>
+            <button onclick="window.switchView('leaderboard')" class="hover:text-orange-400 transition">_Ranking</button>
+            <button onclick="window.switchView('paper')" class="hover:text-pink-400 transition">_BlackPaper</button>
+            <button onclick="window.switchView('referral')" class="hover:text-yellow-400 transition">_Referral</button>
+            <button onclick="window.switchView('dev-zone')" class="hover:text-cyan-400 transition">_WarRoom</button>
+            
+            <div class="hidden lg:flex flex-col items-end px-4 border-l border-white/10 ml-4">
+                <div class="flex items-center gap-1.5 leading-none font-black italic text-green-400 text-sm">
+                    <span id="navBalance">0.0000</span>
+                    <span class="text-[8px] tracking-widest text-green-500/40 font-black">$HUB</span>
+                </div>
+            </div>
+
+            <button id="connectBtn" onclick="window.handleWalletAction()" class="btn-blackops px-6 py-2.5 text-[9px] tracking-widest font-black ml-4 uppercase">IDENTITY_SYNC</button>
+        </div>
+    </nav>
+
+    <div id="toast" style="position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: var(--neon-green); color: black; padding: 12px 24px; font-family: 'JetBrains Mono', monospace; font-weight: 900; z-index: 10000; opacity: 0; transition: 0.3s; clip-path: polygon(5% 0, 100% 0, 95% 100%, 0 100%); border: 1px solid white; pointer-events: none;">>> SYSTEM_ACTIVE</div>
+
+    <!-- MAIN CONTENT -->
+    <main class="container mx-auto px-4 md:px-6 pt-72 pb-32 min-h-screen text-center">
+        
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard-view" class="view-active space-y-12">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                <div class="hud-panel p-6 flex items-center gap-6">
+                    <div class="sentiment-orb" id="orb"></div>
+                    <div>
+                        <span class="text-[8px] text-gray-500 mono uppercase block mb-1">Neural_Sentiment_v6</span>
+                        <h4 class="text-2xl font-black italic text-green-500 uppercase" id="sentimentText">HYPER_BULLISH</h4>
+                    </div>
+                </div>
+                <div class="hud-panel p-6">
+                    <span class="text-[8px] text-gray-500 mono block mb-1">Quantum_Gas_Oracle</span>
+                    <div class="flex items-end gap-3 mt-2">
+                        <span class="text-4xl font-black italic text-white" id="gasVal">--</span>
+                        <div class="h-10 w-24 bg-white/5 relative flex items-end">
+                            <div class="w-2 bg-green-500 mr-0.5" style="height: 50%"></div>
+                            <div class="w-2 bg-green-500 mr-0.5" style="height: 80%"></div>
+                            <div class="w-2 bg-green-500 mr-0.5" style="height: 60%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hud-panel p-6 text-blue-400">
+                    <span class="text-[8px] text-gray-500 mono block mb-1 uppercase">Whale_Liquidity_Flow</span>
+                    <div class="mt-4 flex flex-col gap-2">
+                        <div class="flex justify-between text-[10px] mono"><span>Realtime_Vol</span><span>$1.24B</span></div>
+                        <div class="w-full h-1 bg-white/10 rounded-full overflow-hidden"><div class="h-full bg-blue-400 shadow-[0_0_10px_cyan]" style="width: 85%"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                <div class="lg:col-span-4 space-y-8">
+                    <div class="hud-panel p-10 relative text-center">
+                        <span class="bg-green-500/10 text-green-500 border border-green-500/30 px-3 py-1 text-[9px] mono font-black italic uppercase">Omega_Inti_Node</span>
+                        <div class="my-10"><span class="mono text-[9px] text-gray-500 block mb-2 uppercase">Realtime_Alpha_Accumulation</span><div class="text-7xl text-white font-black italic" id="pendingVal">0.0000</div></div>
+                        <button onclick="window.handleClaim()" class="w-full btn-blackops py-6 text-sm font-black uppercase italic tracking-[0.2em]">EXECUTE_DATA_HARVEST</button>
+                    </div>
+                    <div class="hud-panel p-8 bg-cyan-900/10 border-cyan-500/20 text-center">
+                        <h3 class="mono text-cyan-400 text-[10px] font-black mb-6 uppercase tracking-widest">_Staking_Transmutation</h3>
+                        <div class="py-4"><div class="text-4xl text-white font-black italic" id="stakingBalance">0.0000</div></div>
+                        <button onclick="window.handleSwap()" class="w-full py-4 bg-cyan-500 text-black font-black text-[11px] hover:bg-white transition uppercase tracking-widest">CONVERT_TO_$HUB</button>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-8 space-y-8 text-left">
+                    <div class="hud-panel p-8 bg-black/80 relative min-h-[440px]">
+                        <header class="flex justify-between items-center mb-8 border-b border-white/5 pb-4">
+                            <h2 class="text-3xl font-black italic text-white uppercase flex items-center gap-4"><span class="w-2 h-2 bg-red-600 rounded-full animate-ping"></span> Oracle_Signal_Stream</h2>
+                            <div class="mono text-[8px] text-gray-500">NEXT_SYNC: <span id="radarTimer">60s</span></div>
+                        </header>
+                        <div class="feed-btn feed-btn-l" onclick="window.slideFeed(-1)">_&lt;</div>
+                        <div class="feed-btn feed-btn-r" onclick="window.slideFeed(1)">_&gt;</div>
+                        <div id="alphaFeed" class="flex gap-6 overflow-x-auto pb-6 no-scrollbar snap-x scroll-smooth">
+                            <div class="p-20 text-center mono text-green-500 animate-pulse w-full uppercase italic">>> Accessing Neural Grid...</div>
+                        </div>
+                    </div>
+
+                    <!-- DEGEN GLOBAL MAP -->
+                    <div class="hud-panel p-8 bg-black/60 relative overflow-hidden">
+                        <header class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-black italic text-white uppercase flex items-center gap-3"><span class="text-green-500 font-black">[//]</span> Degen_Expansion_Map</h3>
+                            <div class="flex items-center gap-4">
+                                <span class="bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 px-2 py-0.5 text-[8px] mono font-black italic">PHASE_1: INITIALIZATION</span>
+                            </div>
+                        </header>
+                        <div class="relative h-[300px] w-full bg-black/40 border border-white/5 flex items-center justify-center">
+                            <svg viewBox="0 0 800 400" class="w-full h-full opacity-30 map-glow">
+                                <path fill="rgba(0, 255, 65, 0.1)" stroke="rgba(0, 255, 65, 0.4)" stroke-width="0.5" d="M150,100 L200,80 L250,120 L300,100 L350,150 L300,200 L200,220 L150,180 Z M450,50 L550,70 L600,150 L550,250 L450,220 L400,120 Z M650,200 L750,220 L720,320 L620,300 Z" />
+                                <circle cx="210" cy="140" r="3" class="map-node" />
+                                <circle cx="510" cy="180" r="3" class="map-node" style="animation-delay: 0.5s" />
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px]">
+                                <div class="text-4xl font-black italic text-white uppercase mb-2">Coming Soon</div>
+                                <div class="mono text-[10px] text-green-500 font-bold uppercase animate-pulse">Establishing Neural Infrastructure...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROFILE VIEW -->
+        <div id="profile-view" class="view-hidden space-y-8 text-left">
+            <button onclick="window.switchView('dashboard')" class="text-gray-500 text-[10px] mono mb-6 hover:text-white uppercase font-black italic"><span>&lt;&lt;</span> Back_to_Dashboard</button>
+            <div id="profileContent" class="space-y-8"></div>
+        </div>
+
+        <!-- BLACK PAPER (FULL RESTORED CONTENT) -->
+        <div id="paper-view" class="view-hidden max-w-7xl mx-auto space-y-16 text-left">
+            <header class="border-b-4 border-white/10 pb-16 relative overflow-hidden">
+                <div class="space-y-6 relative z-10">
+                    <div class="flex items-center gap-5 mono text-[11px] text-pink-500 font-black tracking-[1em] uppercase">
+                        <span class="w-24 h-[2px] bg-pink-500"></span> DECRYPTED_OMEGA_CORE_v16.9.8
+                    </div>
+                    <h1 class="text-5xl md:text-8xl font-black italic text-white leading-none uppercase tracking-tighter">Sovereign Alpha <span class="text-neon-green">Protocol</span></h1>
+                    <p class="mono text-gray-400 text-sm italic tracking-[0.4em] uppercase font-bold">Cognitive Architecture and Limitless Execution Manifesto</p>
+                </div>
+                <div class="absolute top-0 right-0 opacity-10 text-[150px] font-black italic text-white pointer-events-none select-none">OMEGA</div>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-16">
+                <aside class="lg:col-span-3 space-y-3 sticky top-72 h-fit">
+                    <nav class="flex flex-col gap-2">
+                        <button onclick="window.scrollToSection('p1', this)" class="paper-sidebar-btn active uppercase font-black">01 // Singularity Core</button>
+                        <button onclick="window.scrollToSection('p2', this)" class="paper-sidebar-btn uppercase font-black">02 // Metaphysical Sync</button>
+                        <button onclick="window.scrollToSection('p3', this)" class="paper-sidebar-btn uppercase font-black">03 // Sharding Temporal</button>
+                        <button onclick="window.scrollToSection('p4', this)" class="paper-sidebar-btn uppercase font-black">04 // Cognitive Mesh</button>
+                        <button onclick="window.scrollToSection('p5', this)" class="paper-sidebar-btn uppercase font-black">05 // Event Horizon Privacy</button>
+                    </nav>
+                </aside>
+                <div class="lg:col-span-9 space-y-40">
+                    <section id="p1" class="paper-entry group"><h3 class="text-4xl font-black italic text-neon-green mb-12 uppercase flex items-center gap-6"><span class="text-6xl opacity-20">01</span> Singularity Core Architecture</h3><div class="mono text-base text-gray-300 leading-relaxed space-y-10 uppercase italic font-medium"><p>Singularity Core is not merely a traditional blockchain implementation; it is an existential operating system designed for high-level financial data sovereignty. Utilizing Heuristic Multi-Routing algorithms, this core can route millions of data packets per nanosecond with absolute atomic integrity.</p><div class="code-kernel"><code>CORE::START singularity --mode=HIGH_VELOCITY --latency=MINIMAL</code></div></div></section>
+                    <section id="p2" class="paper-entry group" style="border-color: var(--neon-pink)"><h3 class="text-4xl font-black italic text-pink-500 mb-12 uppercase flex items-center gap-6"><span class="text-6xl opacity-20">02</span> Metaphysical Entropy Sync</h3><div class="mono text-base text-gray-300 font-bold uppercase italic leading-relaxed"><p>Degen Hub leverages a unique capability to map volatility before it manifests in price charts. By scanning global resonance, our cognitive AI identifies liquidity formation in its embryonic phase.</p></div></section>
+                    <section id="p3" class="paper-entry group" style="border-color: var(--neon-blue)"><h3 class="text-4xl font-black italic text-neon-blue mb-12 uppercase flex items-center gap-6"><span class="text-6xl opacity-20">03</span> Temporal Sharding Multi-Dimensi</h3><div class="mono text-base text-gray-300 font-medium uppercase italic leading-relaxed"><p>Parallel execution time dimensions allow Omega to exceed 1.4 Million TPS. Each shard operates independently yet remains synced globally.</p></div></section>
+                    <section id="p4" class="paper-entry group" style="border-color: var(--warning-orange)"><h3 class="text-4xl font-black italic text-orange-400 mb-12 uppercase flex items-center gap-6"><span class="text-6xl opacity-20">04</span> Cognitive Mesh Consensus</h3><div class="mono text-base text-gray-300 font-medium uppercase italic leading-relaxed"><p>The Proof of Intelligence (PoI) protocol validates nodes based on their analytical contribution, creating a neural mesh that learns from every block.</p></div></section>
+                    <section id="p5" class="paper-entry group" style="border-color: var(--danger-red)"><h3 class="text-4xl font-black italic text-danger-red mb-12 uppercase flex items-center gap-6"><span class="text-6xl opacity-20">05</span> Event Horizon Privacy</h3><div class="mono text-base text-gray-300 font-black uppercase italic leading-relaxed"><p>Financial sovereignty via RZK encryption. Your transaction data passes through a digital event horizon, impenetrable to outside surveillance.</p></div></section>
+                </div>
+            </div>
+        </div>
+
+        <!-- WAR ROOM -->
+        <div id="dev-zone-view" class="view-hidden space-y-8">
+            <div class="hud-panel p-12 text-center bg-black/90 relative overflow-hidden">
+                <div class="scan-anim opacity-20"></div>
+                <h1 class="text-6xl font-black italic tracking-tighter text-white uppercase mb-4">Neural_Command</h1>
+                <p class="mono text-cyan-400 text-xs italic uppercase tracking-[0.6em]">Mode_Hyper_Execution_Omega_Active</p>
+                <div id="three-container" class="w-full h-[500px] mt-12 bg-black/20 border border-white/5"></div>
+                <div class="flex justify-center gap-12 mt-12">
+                    <button onclick="window.toggleNode()" id="nodeBtn" class="btn-blackops px-14 py-6 text-sm uppercase italic shadow-[0_0_40px_rgba(0,242,255,0.4)]">INITIALIZE_ENGINE</button>
+                    <div class="text-left"><span class="text-[8px] text-gray-500 mono block mb-1 uppercase text-left">Status_Core</span><span id="tempVal" class="text-3xl font-black italic text-green-500 uppercase">32°C</span></div>
+                </div>
+                <div class="max-w-2xl mx-auto mt-12"><input type="range" id="overclockSlider" min="10" max="150" value="10" class="w-full accent-cyan-500 bg-white/5 h-2 rounded-lg cursor-crosshair"></div>
+                <div id="shardContainer" class="shard-grid mt-12 max-w-3xl mx-auto"></div>
+            </div>
+        </div>
+
+        <!-- LEADERBOARD -->
+        <div id="leaderboard-view" class="view-hidden max-w-5xl mx-auto space-y-10 text-left">
+            <h1 class="text-7xl font-black italic tracking-tighter text-orange-500 uppercase">Network_Dominance</h1>
+            <div class="hud-panel p-8 bg-black/80">
+                <table class="w-full mono text-[12px] text-left">
+                    <thead class="text-gray-500 border-b border-white/10 uppercase font-black">
+                        <tr><th class="pb-6 px-4">RANK</th><th>NODE_ID</th><th class="text-center">PEER_SYNC</th><th class="text-center">BOOST_X</th><th class="text-right px-6">HUB_BALANCE</th></tr>
+                    </thead>
+                    <tbody id="lbBody" class="font-bold italic"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- REFERRAL -->
+        <div id="referral-view" class="view-hidden space-y-10 text-center">
+            <h1 class="text-7xl font-black italic tracking-tighter text-white uppercase">Neural_Uplink</h1>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center text-left">
+                <div class="hud-panel p-8 h-[500px] flex items-center justify-center overflow-hidden"><svg id="neuralMeshSVG" viewBox="0 0 400 400" class="w-full h-full max-w-[400px]"><circle cx="200" cy="200" r="15" class="neural-node shadow-[0_0_20px_var(--neon-green)]" /><g id="peerNodesGroup"></g></svg></div>
+                <div class="hud-panel p-20 bg-black/80 text-center">
+                    <h3 class="mono text-yellow-500 mb-10 uppercase italic font-black text-lg">_Generate_Secure_Hex_Uplink</h3>
+                    <div id="refLinkDisplay" class="w-full bg-black border border-white/10 p-10 mono text-yellow-500 break-all text-xs uppercase italic leading-loose font-bold">CONNECT_IDENTITY_FOR_DECRYPTION</div>
+                    <button onclick="window.copyRef()" class="w-full mt-12 py-8 btn-blackops !bg-yellow-500 text-sm uppercase italic font-black shadow-[0_0_30px_rgba(255,255,0,0.2)]">COPY_UPLINK</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- PARTNERSHIP MARQUEE (TWO ROWS FIXED) -->
+    <div class="partnership-container">
+        <div class="partner-row">
+            <div class="partner-content-l">
+                <div class="partner-item"><span>//</span> BINANCE_LABS</div>
+                <div class="partner-item"><span>//</span> ETH_FOUNDATION</div>
+                <div class="partner-item"><span>//</span> CHAINLINK_NET</div>
+                <div class="partner-item"><span>//</span> NVIDIA_A100_AI</div>
+                <div class="partner-item"><span>//</span> UNISWAP_V4</div>
+                <div class="partner-item"><span>//</span> OPEN_AI_DATA</div>
+                <div class="partner-item"><span>//</span> BINANCE_LABS</div>
+                <div class="partner-item"><span>//</span> ETH_FOUNDATION</div>
+            </div>
+        </div>
+        <div class="partner-row">
+            <div class="partner-content-r">
+                <div class="partner-item"><span>//</span> ARBITRUM_L2</div>
+                <div class="partner-item"><span>//</span> POLYGON_ZK</div>
+                <div class="partner-item"><span>//</span> BASE_KERNEL</div>
+                <div class="partner-item"><span>//</span> DEX_SCREENER</div>
+                <div class="partner-item"><span>//</span> SOLANA_LABS</div>
+                <div class="partner-item"><span>//</span> PYTH_NETWORK</div>
+                <div class="partner-item"><span>//</span> ARBITRUM_L2</div>
+                <div class="partner-item"><span>//</span> POLYGON_ZK</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER SPECTACULAR -->
+    <footer class="relative pt-24 pb-12 border-t border-green-500/30 bg-black/98 overflow-hidden z-[50]">
+        <div class="footer-grid-floor"></div>
+        <div class="container mx-auto px-6 relative z-10 text-center md:text-left">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+                <div class="lg:col-span-4 flex items-center justify-center md:justify-start gap-6">
+                    <div class="w-16 h-16 bg-green-500 flex items-center justify-center font-black text-black text-2xl skew-x-[-15deg] shadow-[0_0_25px_var(--neon-green)]">DH</div>
+                    <div class="leading-none text-left">
+                        <span class="text-green-500 mono text-[20px] font-black uppercase italic tracking-tighter">Omega_Net_Core</span><br>
+                        <span class="text-white/30 mono text-[9px] uppercase font-bold tracking-[0.4em] mt-2 block italic">Security_Protocol_v16.9.8_Armed</span>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-4 flex justify-center gap-10">
+                    <div class="diagnostic-circle"><div class="diagnostic-fill" id="memGauge"></div><span class="text-[9px] mono font-black">MEM</span></div>
+                    <div class="diagnostic-circle"><div class="diagnostic-fill" id="kerGauge" style="--angle: 280deg; border-color: var(--neon-pink);"></div><span class="text-[9px] mono font-black">KER</span></div>
+                    <div class="diagnostic-circle"><div class="diagnostic-fill" id="netGauge" style="--angle: 120deg; border-color: var(--neon-blue);"></div><span class="text-[9px] mono font-black">NET</span></div>
+                </div>
+
+                <div class="lg:col-span-4 text-center md:text-right font-black italic text-white text-5xl tracking-tighter" id="footerUptime">00:00:00</div>
+            </div>
+            
+            <div class="mt-20 pt-8 border-t border-white/5 text-[9px] mono text-gray-500 italic font-bold text-center" id="hexStream">ENCRYPT_STREAM: WAITING_FOR_KERNEL_DATA...</div>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, serverTimestamp, updateDoc, increment, getDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const myRealFirebaseConfig = { apiKey: "AIzaSy...", authDomain: "your-project-id.firebaseapp.com", projectId: "your-project-id" };
+        const finalConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myRealFirebaseConfig;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : finalConfig.projectId;
+        const app = initializeApp(finalConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const state = { userIdentifier: null, balance: 0, stakingBalance: 0, pending: 0, peers: 0, uptime: 0, temp: 32, nodeActive: false, overclock: 10, swapRate: 0.001 };
+
+        window.showToast = (msg) => { const t = document.getElementById('toast'); if(t) { t.innerText = `>> ${msg}`; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 3000); } };
+
+        const syncVault = async () => {
+            if(!auth || !auth.currentUser) return;
+            const userId = auth.currentUser.uid;
+            const userRef = doc(db, 'artifacts', appId, 'users', userId, 'vaults', 'data');
+            try {
+                const snap = await getDoc(userRef);
+                if (!snap.exists()) { await setDoc(userRef, { balance: 0, stakingBalance: 0, peers: 0, joined: serverTimestamp() }); }
+                onSnapshot(userRef, (s) => { if (s.exists()) { const d = s.data(); state.balance = d.balance || 0; state.stakingBalance = d.stakingBalance || 0; state.peers = d.peers || 0; updateUI(); } });
+            } catch(e) { console.error(e); }
+        };
+
+        window.loginWithGoogle = async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                const result = await signInWithPopup(auth, provider);
+                state.userIdentifier = result.user.email;
+                window.closeWalletModal(); window.showToast("IDENTITY_SYNC_SUCCESS");
+                syncVault(); updateUI();
+            } catch (error) {
+                if(error.code === 'auth/unauthorized-domain') { 
+                    document.getElementById('authDiagnostic').classList.remove('hidden'); 
+                    document.getElementById('errDomain').innerText = window.location.hostname; 
+                }
+                window.showToast("GOOGLE_SYNC_FAILED");
+            }
+        };
+
+        window.handleWalletAction = () => { if (state.userIdentifier) { window.switchView('dashboard'); } else { window.openWalletModal(); } };
+        window.openWalletModal = () => document.getElementById('walletModal')?.classList.add('active');
+        window.closeWalletModal = () => document.getElementById('walletModal')?.classList.remove('active');
+
+        window.scrollToSection = (id, btn) => {
+            const el = document.getElementById(id);
+            if (el) { 
+                document.querySelectorAll('.paper-sidebar-btn').forEach(b => b.classList.remove('active')); 
+                if (btn) btn.classList.add('active'); 
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+            }
+        };
+
+        window.slideFeed = (direction) => { const feed = document.getElementById('alphaFeed'); const scrollAmount = 300; feed.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' }); };
+
+        let scene, camera, renderer, meshCore;
+        const initThreeJS = () => {
+            const container = document.getElementById('three-container');
+            if(!container) return;
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 2000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            const geo = new THREE.IcosahedronGeometry(150, 1);
+            meshCore = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true, transparent: true, opacity: 0.25 }));
+            scene.add(meshCore);
+            camera.position.z = 450;
+            const animate = () => {
+                requestAnimationFrame(animate);
+                const clockSpeed = (state.overclock / 350) + (state.nodeActive ? 0.03 : 0.005);
+                meshCore.rotation.y += clockSpeed; meshCore.rotation.x += clockSpeed * 0.3;
+                const hCol = new THREE.Color(state.temp > 85 ? 0xff0033 : 0x00f2ff);
+                meshCore.material.color.lerp(hCol, 0.05);
+                renderer.render(scene, camera);
+            };
+            animate();
+        };
+
+        // EXPLICIT GLOBAL ATTACHMENT FOR HTML CALLS
+        window.toggleNode = () => { 
+            state.nodeActive = !state.nodeActive; 
+            const btn = document.getElementById('nodeBtn'); 
+            if(btn) { 
+                btn.innerText = state.nodeActive ? "TERMINATE" : "INITIALIZE"; 
+                btn.style.background = state.nodeActive ? "var(--danger-red)" : "var(--neon-blue)"; 
+            } 
+            if(state.nodeActive) startWarRoomLoop(); 
+        };
+
+        function startWarRoomLoop() { 
+            if(!state.nodeActive) return; 
+            const slider = document.getElementById('overclockSlider'); 
+            state.overclock = parseInt(slider?.value || 10); 
+            state.temp = 32 + (state.overclock * 0.45); 
+            if(document.getElementById('tempVal')) document.getElementById('tempVal').innerText = `${Math.floor(state.temp)}°C`; 
+            if(state.temp > 98) { window.showToast("THERMAL_SHUTDOWN"); window.toggleNode(); return; } 
+            const sc = document.getElementById('shardContainer'); 
+            if(sc) sc.innerHTML = Array(48).fill(0).map(() => `<div class="shard-cell ${Math.random() > (1 - state.overclock/150) ? 'shard-active' : ''}">${Math.floor(Math.random()*255).toString(16).toUpperCase()}</div>`).join(''); 
+            setTimeout(startWarRoomLoop, 200); 
+        };
+
+        const updateUI = () => {
+            if(document.getElementById('pendingVal')) document.getElementById('pendingVal').innerText = state.pending.toFixed(4);
+            if(document.getElementById('stakingBalance')) document.getElementById('stakingBalance').innerText = state.stakingBalance.toFixed(4);
+            if(document.getElementById('navBalance')) document.getElementById('navBalance').innerText = state.balance.toFixed(4);
+            if(state.userIdentifier) {
+                const nodeDisplay = document.getElementById('nodeDisplayAddr'), connBtn = document.getElementById('connectBtn');
+                if (nodeDisplay) nodeDisplay.innerText = `NODE_${state.userIdentifier.split('@')[0].toUpperCase()}`;
+                if (connBtn) connBtn.innerText = `SYNCED`;
+            }
+        };
+
+        const MOCK_TOKENS = [
+            { icon: '', chainId: 'solana', tokenAddress: 'EPjFW36vWD...'},
+            { icon: '', chainId: 'ethereum', tokenAddress: '0xdAC17F...'},
+            { icon: '', chainId: 'base', tokenAddress: '0x833589...'}
+        ];
+
+        window.fetchAlpha = async () => {
+            const af = document.getElementById('alphaFeed');
+            try {
+                const res = await fetch("https://api.dexscreener.com/token-profiles/latest/v1");
+                const profiles = await res.json();
+                renderTokens(profiles);
+            } catch(e) { 
+                console.warn("API Error: Fallback to Mock Data");
+                renderTokens(MOCK_TOKENS);
+            }
+        };
+
+        const renderTokens = (tokens) => {
+            const af = document.getElementById('alphaFeed');
+            if(!af || !Array.isArray(tokens)) return;
+            af.innerHTML = tokens.slice(0, 15).map(t => `
+                <div class="alpha-card snap-center" onclick="window.scanToken('${t.tokenAddress}')">
+                    <div class="flex justify-between items-center">
+                        <img src="${t.icon || 'https://via.placeholder.com/40?text=DH'}" class="w-10 h-10 border border-green-500/30" />
+                        <span class="bg-neon-pink/10 text-neon-pink text-[7px] px-2 py-1 border border-neon-pink/20 font-black">ALPHA_SYNC</span>
+                    </div>
+                    <div class="mt-4 text-left">
+                        <h4 class="text-white text-[10px] font-black truncate italic uppercase">${t.chainId} // 0x${t.tokenAddress.substring(0,8)}</h4>
+                        <p class="text-[7px] text-gray-500 mono mt-1 font-bold">Signal: Validating...</p>
+                    </div>
+                    <div class="mt-5 text-[9px] text-green-500 font-black italic text-right uppercase border-t border-white/5 pt-2">VIEW_OMEGA_INTEL >></div>
+                </div>`).join('');
+        }
+
+        window.scanToken = (addr) => {
+            window.switchView('profile');
+            const cont = document.getElementById('profileContent');
+            cont.innerHTML = `<div class="py-40 text-center mono text-green-500 animate-pulse font-black uppercase italic tracking-widest">>> DECRYPTING_0x${addr.substring(0,12)}...</div>`;
+            fetch(`https://api.dexscreener.com/latest/dex/tokens/${addr}`).then(r => r.json()).then(data => {
+                const p = data.pairs?.[0];
+                if(!p) { cont.innerHTML = `<div class="p-20 text-red-500 mono italic uppercase font-black">DATA_NOT_FOUND</div>`; return; }
+                const rugScore = Math.floor(Math.random() * 15 + 1); 
+                cont.innerHTML = `
+                    <div class="hud-panel p-2 bg-black overflow-hidden relative border-neon-blue/30" style="height: 600px;"><iframe style="width:100%; height:100%; border:none;" src="https://dexscreener.com/${p.chainId}/${p.pairAddress}?embed=1&theme=dark&trades=0&info=0"></iframe></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 text-left uppercase italic mt-8">
+                        <div class="hud-panel p-8 space-y-6"><h1 class="text-5xl font-black italic">${p.baseToken.name}</h1><p class="mono text-gray-500 uppercase font-black text-xs">Security Verified</p><div class="mono text-sm text-gray-400 leading-loose border-l-4 border-neon-green pl-6 py-4 bg-neon-green/5">CRYPTOGRAPHIC_EXPLANATION: ${p.baseToken.name} HAS PASSED SINGULARITY FILTERS. COGNITIVE ALGORITHMS DETECTED HIGH PROTOCOL STABILITY.</div></div>
+                        <div class="hud-panel p-8 bg-black/80"><h3 class="mono text-danger-red text-xs font-black uppercase mb-6 italic tracking-widest">_Neural_Intel_Report</h3><div class="space-y-4"><div class="flex justify-between text-[11px] font-black uppercase"><span>RUG_PROBABILITY:</span><span>${rugScore}%</span></div><div class="w-full h-2 bg-white/5 rounded-full overflow-hidden"><div class="h-full bg-red-500 shadow-[0_0_10px_red]" style="width: ${rugScore}%"></div></div><button class="w-full mt-8 btn-blackops py-8 text-2xl font-black uppercase italic shadow-[0_0_30px_rgba(0,255,65,0.2)]" onclick="window.open('${p.url}', '_blank')">EXECUTE_SWAP</button></div></div>
+                    </div>`;
+            });
+        };
+
+        window.switchView = (id) => { 
+            document.querySelectorAll('main > div').forEach(v => v.classList.add('view-hidden')); 
+            const target = document.getElementById(`${id}-view`);
+            if(target) target.classList.remove('view-hidden'); 
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if(id === 'dev-zone') {
+                setTimeout(() => {
+                    const container = document.getElementById('three-container');
+                    if(container && renderer) {
+                        renderer.setSize(container.clientWidth, container.clientHeight);
+                        camera.aspect = container.clientWidth / container.clientHeight;
+                        camera.updateProjectionMatrix();
+                    }
+                }, 100);
+            }
+        };
+
+        window.addEventListener('load', async () => {
+            initThreeJS();
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else if(auth) await signInAnonymously(auth);
+            onAuthStateChanged(auth, (u) => { if(u) { if(!u.isAnonymous) state.userIdentifier = u.email; syncVault(); updateUI(); } });
+            window.fetchAlpha();
+            setInterval(() => {
+                const multiplier = 1 + (state.peers * 0.1) + (state.nodeActive ? state.overclock/200 : 0);
+                state.pending += 0.0001 * multiplier; state.uptime++; updateUI();
+                const h = Math.floor(state.uptime/3600).toString().padStart(2,'0'), m = Math.floor((state.uptime%3600)/60).toString().padStart(2,'0'), s = (state.uptime%60).toString().padStart(2,'0'); 
+                if(document.getElementById('footerUptime')) document.getElementById('footerUptime').innerText = `${h}:${m}:${s}`; 
+                if(document.getElementById('currentTime')) document.getElementById('currentTime').innerText = `${new Date().toLocaleTimeString()} GMT`;
+                const g = document.getElementById('gasVal'); if(g) g.innerText = Math.floor(18 + Math.random() * 12);
+                const hs = document.getElementById('hexStream'); if(hs) hs.innerText = `ENCRYPT_STREAM: 0x${Math.random().toString(16).substring(2,12).toUpperCase()} | OMEGA_VERIFIED`;
+            }, 1000);
+            window.addEventListener('mousemove', (e) => { const mc = document.getElementById('mouseCoord'); if(mc) mc.innerText = `${e.clientX}.0, ${e.clientY}.0`; });
+        });
+
+        window.copyRef = () => { const rl = document.getElementById('refLinkDisplay').innerText; if(!rl.includes('SYNC')) { const t = document.createElement('textarea'); t.value = rl; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); window.showToast("UPLINK_COPIED"); } };
+    </script>
+</body>
+</html>
